@@ -225,7 +225,7 @@ def test_insert_entry_transaction(tmp_path) -> None:
     # the last posting doesn't match.
     options = [
         InsertEntryOption(
-            date(2015, 1, 1), re.compile(".*:Slate"), str(samplefile), 5,
+            date(2015, 1, 1), re.compile(".*:Slate"), str(samplefile), 6,
         ),
         InsertEntryOption(
             date(2015, 1, 2), re.compile(".*:FOOO"), str(samplefile), 1,
@@ -259,10 +259,10 @@ def test_insert_entry_transaction(tmp_path) -> None:
     # case several of them match a posting.
     options = [
         InsertEntryOption(
-            date(2015, 1, 1), re.compile(".*:Food"), str(samplefile), 5,
+            date(2015, 1, 1), re.compile(".*:Food"), str(samplefile), 6,
         ),
         InsertEntryOption(
-            date(2015, 1, 2), re.compile(".*:Food"), str(samplefile), 1,
+            date(2015, 1, 2), re.compile(".*:Food"), str(samplefile), 2,
         ),
     ]
     transaction = transaction._replace(narration="narr3")
