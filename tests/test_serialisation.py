@@ -20,7 +20,15 @@ from fava.helpers import FavaAPIException
 from fava.serialisation import deserialise
 from fava.serialisation import deserialise_posting
 from fava.serialisation import extract_tags_links
+from fava.serialisation import parse_numeric_expression
 from fava.serialisation import serialise
+
+
+def test_parse_numeric_expression():
+    assert parse_numeric_expression("5/2") == D("2.5")
+    assert parse_numeric_expression("5") == D("5")
+    assert parse_numeric_expression("12.345") == D("12.345")
+    assert parse_numeric_expression("1+2 + 3") == D("6")
 
 
 def test_serialise() -> None:
@@ -207,6 +215,36 @@ def test_deserialise() -> None:
 
     with pytest.raises(FavaAPIException):
         deserialise({"type": "NoEntry"})
+
+
+def test_deserialise_complex():
+    postings = [
+        {"account": "Assets:ETrade:Cash", "amount": "100+50 + 10 USD"},
+        {"account": "Assets:ETrade:Bank", "amount": "-320/2 USD"},
+    ]
+    json_txn = {
+        "type": "Transaction",
+        "date": "2017-12-12",
+        "flag": "*",
+        "payee": "Test3",
+        "narration": "asdfasd #tag ^link",
+        "meta": {},
+        "postings": postings,
+    }
+
+    txn = Transaction(
+        {},
+        datetime.date(2017, 12, 12),
+        "*",
+        "Test3",
+        "asdfasd",
+        frozenset(["tag"]),
+        frozenset(["link"]),
+        [],
+    )
+    create_simple_posting(txn, "Assets:ETrade:Cash", "160", "USD")
+    create_simple_posting(txn, "Assets:ETrade:Bank", "-160", "USD")
+    assert deserialise(json_txn) == txn
 
 
 def test_deserialise_balance() -> None:

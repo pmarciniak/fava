@@ -46,6 +46,24 @@ def extract_tags_links(string):
     return new_string, frozenset(tags), frozenset(links)
 
 
+def parse_numeric_expression(expression):
+    """Parse a numeric expression as entered in an entry form.
+
+    Supports division and addition.
+    """
+    if not expression:
+        return None
+    if "/" in expression:
+        left, right = expression.split("/")
+        return D(left) / D(right)
+    if "+" in expression:
+        accumulated_sum = D("0")
+        for num in expression.split("+"):
+            accumulated_sum += D(num)
+        return accumulated_sum
+    return D(expression)
+
+
 @functools.singledispatch
 def serialise(entry):
     """Serialise an entry."""
@@ -85,14 +103,28 @@ def _serialise_posting(posting):
 
 def deserialise_posting(posting):
     """Parse JSON to a Beancount Posting."""
-    amount = posting.get("amount", "")
-    entries, errors, _ = parse_string(
-        f'2000-01-01 * "" ""\n Assets:Account {amount}'
-    )
-    if errors:
-        raise FavaAPIException(f"Invalid amount: {amount}")
-    pos = entries[0].postings[0]
-    return pos._replace(account=posting["account"], meta=None)
+    amount = posting.get("amount")
+    price = None
+    if amount:
+        if "@" in amount:
+            amount, raw_price = amount.split("@")
+            price = A(raw_price)
+        remainder = ""
+        match = re.match(r"([0-9.\-\+\/ ]*[0-9])(.*)", amount)
+        if match:
+            amount = match.group(1)
+            remainder = match.group(2)
+        pos = position.from_string(
+            str(parse_numeric_expression(amount)) + remainder
+        )
+        units = pos.units
+        if re.search(r"{\s*}", remainder):
+            cost = data.CostSpec(MISSING, None, MISSING, None, None, False)
+        else:
+            cost = pos.cost
+    else:
+        units, cost = None, None
+    return data.Posting(posting["account"], units, cost, price, None, None)
 
 
 def deserialise(json_entry):
@@ -122,7 +154,8 @@ def deserialise(json_entry):
     if json_entry["type"] == "Balance":
         date = util.date.parse_date(json_entry["date"])[0]
         raw_amount = json_entry["amount"]
-        amount = Amount(D(str(raw_amount["number"])), raw_amount["currency"])
+        number = parse_numeric_expression(raw_amount["number"])
+        amount = Amount(number, raw_amount["currency"])
 
         return Balance(
             json_entry["meta"], date, json_entry["account"], amount, None, None
