@@ -5,6 +5,7 @@ from typing import Tuple, Optional, FrozenSet
 import pytest
 from beancount.core.amount import A, Amount
 from beancount.core.data import Balance
+from beancount.core.data import Cost
 from beancount.core.data import CostSpec
 from beancount.core.data import create_simple_posting
 from beancount.core.data import Note
@@ -220,7 +221,8 @@ def test_deserialise() -> None:
 def test_deserialise_complex():
     postings = [
         {"account": "Assets:ETrade:Cash", "amount": "100+50 + 10 USD"},
-        {"account": "Assets:ETrade:Bank", "amount": "-320/2 USD"},
+        {"account": "Assets:ETrade:Bank", "amount": "-1400/10 CHF"},
+        {"account": "Assets:ETrade:Foreign", "amount": "-100 EUR @@ 20 CHF"},
     ]
     json_txn = {
         "type": "Transaction",
@@ -243,7 +245,17 @@ def test_deserialise_complex():
         [],
     )
     create_simple_posting(txn, "Assets:ETrade:Cash", "160", "USD")
-    create_simple_posting(txn, "Assets:ETrade:Bank", "-160", "USD")
+    create_simple_posting(txn, "Assets:ETrade:Bank", "-140", "CHF")
+    txn.postings.append(
+        Posting(
+            "Assets:ETrade:Foreign",
+            Amount(D("-100"), "EUR"),
+            None,
+            Amount(D("0.2"), "CHF"),
+            None,
+            None,
+        )
+    )
     assert deserialise(json_txn) == txn
 
 
