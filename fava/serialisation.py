@@ -42,14 +42,22 @@ def extract_tags_links(string):
     return new_string, frozenset(tags), frozenset(links)
 
 
-def parse_number(num):
-    """Parse a number as entered in an entry form, supporting division."""
-    if not num:
+def parse_numeric_expression(expression):
+    """Parse a numeric expression as entered in an entry form.
+
+    Supports division and addition.
+    """
+    if not expression:
         return None
-    if "/" in num:
-        left, right = num.split("/")
+    if "/" in expression:
+        left, right = expression.split("/")
         return D(left) / D(right)
-    return D(num)
+    if "+" in expression:
+        accumulated_sum = D("0")
+        for num in expression.split("+"):
+            accumulated_sum += D(num)
+        return accumulated_sum
+    return D(expression)
 
 
 @functools.singledispatch
@@ -91,9 +99,16 @@ def deserialise_posting(posting):
         if "@" in amount:
             amount, raw_price = amount.split("@")
             price = A(raw_price)
-        pos = position.from_string(amount)
+        remainder = ""
+        match = re.match(r"([0-9.\-\+\/ ]*[0-9])(.*)", amount)
+        if match:
+            amount = match.group(1)
+            remainder = match.group(2)
+        pos = position.from_string(
+            str(parse_numeric_expression(amount)) + remainder
+        )
         units = pos.units
-        if re.search(r"{\s*}", amount):
+        if re.search(r"{\s*}", remainder):
             cost = data.CostSpec(MISSING, None, MISSING, None, None, False)
         else:
             cost = pos.cost
@@ -129,7 +144,7 @@ def deserialise(json_entry):
     if json_entry["type"] == "Balance":
         date = util.date.parse_date(json_entry["date"])[0]
         raw_amount = json_entry["amount"]
-        number = parse_number(raw_amount["number"])
+        number = parse_numeric_expression(raw_amount["number"])
         amount = Amount(number, raw_amount["currency"])
 
         return data.Balance(
