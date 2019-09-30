@@ -3,6 +3,7 @@ import datetime
 from typing import Tuple, Optional, FrozenSet
 
 import pytest
+<<<<<<< HEAD
 from beancount.core.amount import A, Amount
 from beancount.core.data import Balance
 from beancount.core.data import Cost
@@ -23,13 +24,38 @@ from fava.serialisation import deserialise_posting
 from fava.serialisation import extract_tags_links
 from fava.serialisation import parse_numeric_expression
 from fava.serialisation import serialise
+=======
+
+from fava.core.helpers import FavaAPIException
+from fava.serialisation import (
+    serialise,
+    deserialise,
+    extract_tags_links,
+    parse_numerical_expression,
+    deserialise_posting,
+)
+>>>>>>> Non hacky support for arithmetic expressions.
 
 
-def test_parse_numeric_expression():
-    assert parse_numeric_expression("5/2") == D("2.5")
-    assert parse_numeric_expression("5") == D("5")
-    assert parse_numeric_expression("12.345") == D("12.345")
-    assert parse_numeric_expression("1+2 + 3") == D("6")
+def test_parse_numerical_expression():
+    assert parse_numerical_expression("0") == D("0")
+    assert parse_numerical_expression("5") == D("5")
+    assert parse_numerical_expression("0.01") == D("0.01")
+    assert parse_numerical_expression("12.345") == D("12.345")
+    assert parse_numerical_expression(".12") == D(".12")
+    assert parse_numerical_expression("-3") == D("-3")
+    assert parse_numerical_expression("1+2 + 3") == D("6")
+    assert parse_numerical_expression("4-1 + 2") == D("5")
+    assert parse_numerical_expression("2*3 * 1") == D("6")
+    assert parse_numerical_expression("5/2") == D("2.5")
+    assert parse_numerical_expression("6/2") == D("3")
+    assert parse_numerical_expression("1.5 + 2 * -3 - 3 / 2") == D("-6")
+    with pytest.raises(FavaAPIException):
+        parse_numerical_expression("a")
+    with pytest.raises(FavaAPIException):
+        parse_numerical_expression("print('a')")
+    with pytest.raises(FavaAPIException):
+        parse_numerical_expression("3**2")
 
 
 def test_serialise() -> None:
@@ -259,7 +285,43 @@ def test_deserialise_complex():
     assert deserialise(json_txn) == txn
 
 
+<<<<<<< HEAD
 def test_deserialise_balance() -> None:
+=======
+def test_deserialise_math_expression():
+    postings = [
+        {"account": "Assets:ETrade:Cash", "amount": "100+50 - 20 USD"},
+        {"account": "Assets:ETrade:Bank", "amount": "-1400/10 USD"},
+        {"account": "Assets:ETrade:Foreign", "amount": "2*5 USD"},
+    ]
+    json_txn = {
+        "type": "Transaction",
+        "date": "2017-12-12",
+        "flag": "*",
+        "payee": "Test3",
+        "narration": "asdfasd #tag ^link",
+        "meta": {},
+        "postings": postings,
+    }
+
+    txn = Transaction(
+        {},
+        datetime.date(2017, 12, 12),
+        "*",
+        "Test3",
+        "asdfasd",
+        frozenset(["tag"]),
+        frozenset(["link"]),
+        [],
+    )
+    create_simple_posting(txn, "Assets:ETrade:Cash", "130", "USD")
+    create_simple_posting(txn, "Assets:ETrade:Bank", "-140", "USD")
+    create_simple_posting(txn, "Assets:ETrade:Foreign", "10", "USD")
+    assert deserialise(json_txn) == txn
+
+
+def test_deserialise_balance():
+>>>>>>> Non hacky support for arithmetic expressions.
     json_bal = {
         "type": "Balance",
         "date": "2017-12-12",

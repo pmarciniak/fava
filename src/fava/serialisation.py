@@ -7,8 +7,16 @@ representation of the entry is provided.
 
 This is not intended to work well enough for full roundtrips yet.
 """
+<<<<<<< HEAD:src/fava/serialisation.py
+=======
+
+import ast
+>>>>>>> Non hacky support for arithmetic expressions.:fava/serialisation.py
 import functools
+import operator
 import re
+from io import StringIO
+from tokenize import generate_tokens, untokenize, NAME, NUMBER, OP, STRING
 
 from beancount.core.amount import Amount
 from beancount.core.data import Balance
@@ -46,22 +54,65 @@ def extract_tags_links(string):
     return new_string, frozenset(tags), frozenset(links)
 
 
-def parse_numeric_expression(expression):
+def is_float_literal_(literal):
+    return re.search(r"^[0-9.][0-9.]*$", literal)
+
+
+def decimalize_statement_(statement):
+    """Wraps every float number in the statement string with a call to D().
+
+    Example: "3.14" -> "D(3.14)"
+    """
+    result = []
+    g = generate_tokens(StringIO(statement).readline)  # tokenize the string
+    for toknum, tokval, _, _, _ in g:
+        if toknum == NUMBER and is_float_literal_(tokval):
+            result.extend(
+                [(NAME, "D"), (OP, "("), (STRING, repr(tokval)), (OP, ")")]
+            )
+        else:
+            result.append((toknum, tokval))
+    return untokenize(result)
+
+
+def eval_(node):
+    supported_operators = {
+        ast.Add: operator.add,
+        ast.Sub: operator.sub,
+        ast.Mult: operator.mul,
+        ast.Div: operator.truediv,
+        ast.USub: operator.neg,
+    }
+    if isinstance(node, ast.Call) and node.func.id == "D":  # D(<number>)
+        return D(node.args[0].s)
+    elif isinstance(node, ast.BinOp):  # <left> <operator> <right>
+        return supported_operators[type(node.op)](
+            eval_(node.left), eval_(node.right)
+        )
+    elif isinstance(node, ast.UnaryOp):  # <operator> <operand> e.g., -1
+        return supported_operators[type(node.op)](eval_(node.operand))
+    else:
+        raise TypeError(node)
+
+
+def parse_numerical_expression(expression):
     """Parse a numeric expression as entered in an entry form.
 
-    Supports division and addition.
+    Supports addition, subtraction, multiplication and division.
+
+    Raises:
+        FavaAPIException: if the given expression cannot be parsed.
     """
     if not expression:
         return None
-    if "/" in expression:
-        left, right = expression.split("/")
-        return D(left) / D(right)
-    if "+" in expression:
-        accumulated_sum = D("0")
-        for num in expression.split("+"):
-            accumulated_sum += D(num)
-        return accumulated_sum
-    return D(expression)
+    try:
+        return eval_(
+            ast.parse(decimalize_statement_(expression), mode="eval").body
+        )
+    except (TypeError, KeyError):
+        raise FavaAPIException(
+            "Invalid arithmetic expression: {}".format(expression)
+        )
 
 
 @functools.singledispatch
@@ -114,12 +165,12 @@ def deserialise_posting(posting):
             amount, raw_price = amount.split("@")
             price = A(raw_price)
         remainder = ""
-        match = re.match(r"([0-9.\-\+\/ ]*[0-9])(.*)", amount)
+        match = re.match(r"([0-9.\-\+\/\* ]*[0-9])(.*)", amount)
         if match:
             amount = match.group(1)
             remainder = match.group(2)
         pos = position.from_string(
-            str(parse_numeric_expression(amount)) + remainder
+            str(parse_numerical_expression(amount)) + remainder
         )
         units = pos.units
         if re.search(r"{\s*}", remainder):
