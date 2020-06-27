@@ -3,7 +3,6 @@ import datetime
 from typing import Tuple, Optional, FrozenSet
 
 import pytest
-<<<<<<< HEAD
 from beancount.core.amount import A, Amount
 from beancount.core.data import Balance
 from beancount.core.data import Cost
@@ -22,19 +21,8 @@ from fava.helpers import FavaAPIException
 from fava.serialisation import deserialise
 from fava.serialisation import deserialise_posting
 from fava.serialisation import extract_tags_links
-from fava.serialisation import parse_numeric_expression
+from fava.serialisation import parse_numerical_expression
 from fava.serialisation import serialise
-=======
-
-from fava.core.helpers import FavaAPIException
-from fava.serialisation import (
-    serialise,
-    deserialise,
-    extract_tags_links,
-    parse_numerical_expression,
-    deserialise_posting,
-)
->>>>>>> Non hacky support for arithmetic expressions.
 
 
 def test_parse_numerical_expression():
@@ -285,10 +273,7 @@ def test_deserialise_complex():
     assert deserialise(json_txn) == txn
 
 
-<<<<<<< HEAD
 def test_deserialise_balance() -> None:
-=======
-def test_deserialise_math_expression():
     postings = [
         {"account": "Assets:ETrade:Cash", "amount": "100+50 - 20 USD"},
         {"account": "Assets:ETrade:Bank", "amount": "-1400/10 USD"},
@@ -321,7 +306,6 @@ def test_deserialise_math_expression():
 
 
 def test_deserialise_balance():
->>>>>>> Non hacky support for arithmetic expressions.
     json_bal = {
         "type": "Balance",
         "date": "2017-12-12",
